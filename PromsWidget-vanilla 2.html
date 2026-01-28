@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MMHCI PROMs Capture</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fafafa;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    h3 {
+      color: #444;
+      margin-top: 24px;
+    }
+    .ref-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+      color: #555;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .item-row {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .item-text {
+      color: #333;
+    }
+    select {
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      width: 100%;
+    }
+    .score-box {
+      padding: 12px;
+      background: #f6f6f6;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+    .risk-flag {
+      color: crimson;
+      font-weight: bold;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 24px 0;
+    }
+    textarea {
+      width: 100%;
+      min-height: 240px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      resize: vertical;
+    }
+    .button-group {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button, .btn-link {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      border: none;
+    }
+    .btn-primary {
+      background: #0066cc;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #0052a3;
+    }
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+    .btn-success:hover {
+      background: #218838;
+    }
+    .btn-secondary {
+      background: white;
+      color: #333;
+      border: 1px solid #ccc;
+    }
+    .btn-secondary:hover {
+      background: #f8f9fa;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 16px 0;
+      cursor: pointer;
+    }
+    .helper-text {
+      margin: 4px 0 12px 0;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>MMHCI PROMs Capture</h2>
+
+    <div class="ref-inputs">
+      <div>
+        <label for="consumerRef">Consumer reference (optional)</label>
+        <input type="text" id="consumerRef" placeholder="e.g., MRN or NEIS consumer ID">
+      </div>
+      <div>
+        <label for="appointmentRef">Appointment reference (optional)</label>
+        <input type="text" id="appointmentRef" placeholder="e.g., appointment ID">
+      </div>
+    </div>
+
+    <hr>
+
+    <h3>PHQ-9</h3>
+    <div class="helper-text">0=Not at all, 1=Several days, 2=More than half, 3=Nearly every day</div>
+    <div id="phq9-items"></div>
+    <div class="score-box">
+      <strong>PHQ-9 total:</strong> <span id="phq9-total">0</span> (<span id="phq9-severity">None/minimal</span>)
+      <span id="phq9-risk-flag"></span>
+    </div>
+
+    <hr>
+
+    <h3>GAD-7</h3>
+    <div id="gad7-items"></div>
+    <div class="score-box">
+      <strong>GAD-7 total:</strong> <span id="gad7-total">0</span> (<span id="gad7-severity">Minimal</span>)
+    </div>
+
+    <hr>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="includeK10" checked>
+      Include K10 (optional)
+    </label>
+
+    <div id="k10-section">
+      <h3>K10</h3>
+      <div class="helper-text">1=None of the time … 5=All of the time</div>
+      <div id="k10-items"></div>
+      <div class="score-box">
+        <strong>K10 total:</strong> <span id="k10-total">10</span>
+      </div>
+    </div>
+
+    <hr>
+
+    <h3>Generated session template</h3>
+    <textarea id="template" readonly></textarea>
+
+    <div class="button-group">
+      <button class="btn-primary" onclick="submitToService()">Submit to service</button>
+      <button class="btn-success" onclick="copyToClipboard()">Copy to clipboard</button>
+      <a class="btn-link btn-secondary" id="emailLink" href="#">Email via mailto</a>
+    </div>
+  </div>
+
+  <script>
+    const PHQ9_ITEMS = [
+      "Little interest or pleasure in doing things",
+      "Feeling down, depressed or hopeless",
+      "Trouble falling or staying asleep, or sleeping too much",
+      "Feeling tired or having little energy",
+      "Poor appetite or overeating",
+      "Feeling bad about yourself — or that you are a failure or have let yourself or your family down",
+      "Trouble concentrating on things, such as reading or watching television",
+      "Moving/speaking slowly, or being fidgety/restless",
+      "Thoughts that you would be better off dead or of hurting yourself in some way (risk item)",
+    ];
+
+    const GAD7_ITEMS = [
+      "Feeling nervous, anxious or on edge",
+      "Not being able to stop or control worrying",
+      "Worrying too much about different things",
+      "Trouble relaxing",
+      "Being so restless that it is hard to sit still",
+      "Becoming easily annoyed or irritable",
+      "Feeling afraid as if something awful might happen",
+    ];
+
+    const K10_ITEMS = [
+      "Tired out for no good reason?",
+      "Nervous?",
+      "So nervous that nothing could calm you down?",
+      "Hopeless?",
+      "Restless or fidgety?",
+      "So restless you could not sit still?",
+      "Depressed?",
+      "That everything was an effort?",
+      "So sad that nothing could cheer you up?",
+      "Worthless?",
+    ];
+
+    const phq9Data = Array(9).fill(0);
+    const gad7Data = Array(7).fill(0);
+    const k10Data = Array(10).fill(1);
+
+    function createLikertSelect(id, options) {
+      const select = document.createElement('select');
+      select.id = id;
+      options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+      });
+      return select;
+    }
+
+    function phq9Severity(score) {
+      if (score <= 4) return "None/minimal";
+      if (score <= 9) return "Mild";
+      if (score <= 14) return "Moderate";
+      if (score <= 19) return "Moderately severe";
+      return "Severe";
+    }
+
+    function gad7Severity(score) {
+      if (score <= 4) return "Minimal";
+      if (score <= 9) return "Mild";
+      if (score <= 14) return "Moderate";
+      return "Severe";
+    }
+
+    function renderPHQ9Items() {
+      const container = document.getElementById('phq9-items');
+      container.innerHTML = '';
+      
+      PHQ9_ITEMS.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        
+        const text = document.createElement('div');
+        text.className = 'item-text';
+        text.innerHTML = `${i + 1}. ${item}${i === 8 ? ' <strong class="risk-flag">(Risk)</strong>' : ''}`;
+        
+        const select = createLikertSelect(`phq9-${i}`, [
+          { value: 0, label: '0 — Not at all' },
+          { value: 1, label: '1 — Several days' },
+          { value: 2, label: '2 — More than half' },
+          { value: 3, label: '3 — Nearly every day' }
+        ]);
+        select.value = phq9Data[i];
+        select.onchange = (e) => {
+          phq9Data[i] = parseInt(e.target.value);
+          updateScores();
+        };
+        
+        row.appendChild(text);
+        row.appendChild(select);
+        container.appendChild(row);
+      });
+    }
+
+    function renderGAD7Items() {
+      const container = document.getElementById('gad7-items');
+      container.innerHTML = '';
+      
+      GAD7_ITEMS.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        
+        const text = document.createElement('div');
+        text.className = 'item-text';
+        text.textContent = `${i + 1}. ${item}`;
+        
+        const select = createLikertSelect(`gad7-${i}`, [
+          { value: 0, label: '0 — Not at all' },
+          { value: 1, label: '1 — Several days' },
+          { value: 2, label: '2 — More than half' },
+          { value: 3, label: '3 — Nearly every day' }
+        ]);
+        select.value = gad7Data[i];
+        select.onchange = (e) => {
+          gad7Data[i] = parseInt(e.target.value);
+          updateScores();
+        };
+        
+        row.appendChild(text);
+        row.appendChild(select);
+        container.appendChild(row);
+      });
+    }
+
+    function renderK10Items() {
+      const container = document.getElementById('k10-items');
+      container.innerHTML = '';
+      
+      K10_ITEMS.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        
+        const text = document.createElement('div');
+        text.className = 'item-text';
+        text.textContent = `${i + 1}. ${item}`;
+        
+        const select = createLikertSelect(`k10-${i}`, [
+          { value: 1, label: '1 — None' },
+          { value: 2, label: '2 — A little' },
+          { value: 3, label: '3 — Some' },
+          { value: 4, label: '4 — Most' },
+          { value: 5, label: '5 — All' }
+        ]);
+        select.value = k10Data[i];
+        select.onchange = (e) => {
+          k10Data[i] = parseInt(e.target.value);
+          updateScores();
+        };
+        
+        row.appendChild(text);
+        row.appendChild(select);
+        container.appendChild(row);
+      });
+    }
+
+    function updateScores() {
+      const phq9Score = phq9Data.reduce((a, b) => a + b, 0);
+      const gad7Score = gad7Data.reduce((a, b) => a + b, 0);
+      const k10Score = k10Data.reduce((a, b) => a + b, 0);
+      const includeK10 = document.getElementById('includeK10').checked;
+
+      document.getElementById('phq9-total').textContent = phq9Score;
+      document.getElementById('phq9-severity').textContent = phq9Severity(phq9Score);
+      
+      const riskFlag = phq9Data[8] > 0;
+      const riskFlagEl = document.getElementById('phq9-risk-flag');
+      if (riskFlag) {
+        riskFlagEl.innerHTML = '<br><strong class="risk-flag">⚠️ Risk flag (Item 9 &gt; 0)</strong>';
+      } else {
+        riskFlagEl.innerHTML = '';
+      }
+
+      document.getElementById('gad7-total').textContent = gad7Score;
+      document.getElementById('gad7-severity').textContent = gad7Severity(gad7Score);
+
+      document.getElementById('k10-total').textContent = k10Score;
+
+      updateTemplate();
+    }
+
+    function updateTemplate() {
+      const consumerRef = document.getElementById('consumerRef').value;
+      const appointmentRef = document.getElementById('appointmentRef').value;
+      const phq9Score = phq9Data.reduce((a, b) => a + b, 0);
+      const gad7Score = gad7Data.reduce((a, b) => a + b, 0);
+      const k10Score = k10Data.reduce((a, b) => a + b, 0);
+      const includeK10 = document.getElementById('includeK10').checked;
+      const riskFlag = phq9Data[8] > 0;
+
+      const lines = [];
+      lines.push('MMHCI LiCBT PROMs Summary');
+      lines.push('----------------------------------------');
+      lines.push(`ConsumerRef: ${consumerRef || '[not provided]'}`);
+      lines.push(`AppointmentRef: ${appointmentRef || '[not provided]'}`);
+      lines.push(`CollectedAt: ${new Date().toISOString()}`);
+      lines.push('');
+      lines.push(`PHQ-9: ${phq9Score} (${phq9Severity(phq9Score)})`);
+      lines.push(` - Item 9 (risk): ${phq9Data[8]} ${riskFlag ? '⚠️' : ''}`);
+      lines.push(`GAD-7: ${gad7Score} (${gad7Severity(gad7Score)})`);
+      if (includeK10) {
+        lines.push(`K10: ${k10Score}`);
+      }
+      lines.push('');
+      if (riskFlag) {
+        lines.push('RISK FLAG:');
+        lines.push(' - PHQ-9 item 9 > 0. Requires clinician acknowledgement and risk workflow.');
+        lines.push('');
+      }
+      lines.push('Item Responses:');
+      lines.push('PHQ-9:');
+      PHQ9_ITEMS.forEach((label, i) => lines.push(` ${i + 1}. [${phq9Data[i]}] ${label}`));
+      lines.push('GAD-7:');
+      GAD7_ITEMS.forEach((label, i) => lines.push(` ${i + 1}. [${gad7Data[i]}] ${label}`));
+      if (includeK10) {
+        lines.push('K10:');
+        K10_ITEMS.forEach((label, i) => lines.push(` ${i + 1}. [${k10Data[i]}] ${label}`));
+      }
+
+      const templateText = lines.join('\n');
+      document.getElementById('template').value = templateText;
+
+      // Update email link
+      const emailLink = document.getElementById('emailLink');
+      emailLink.href = `mailto:service@example.org?subject=${encodeURIComponent('MMHCI PROMs Summary')}&body=${encodeURIComponent(templateText)}`;
+    }
+
+    async function submitToService() {
+      const consumerRef = document.getElementById('consumerRef').value;
+      const appointmentRef = document.getElementById('appointmentRef').value;
+      const phq9Score = phq9Data.reduce((a, b) => a + b, 0);
+      const gad7Score = gad7Data.reduce((a, b) => a + b, 0);
+      const k10Score = k10Data.reduce((a, b) => a + b, 0);
+      const includeK10 = document.getElementById('includeK10').checked;
+      const templateText = document.getElementById('template').value;
+
+      const endpoint = '/api/proms/submit';
+      const payload = {
+        consumerRef,
+        appointmentRef,
+        collectedAt: new Date().toISOString(),
+        measures: {
+          phq9: { items: phq9Data, total: phq9Score },
+          gad7: { items: gad7Data, total: gad7Score },
+          ...(includeK10 ? { k10: { items: k10Data, total: k10Score } } : {})
+        },
+        risk: {
+          phq9Item9: phq9Data[8],
+          flagged: phq9Data[8] > 0
+        },
+        renderedTemplate: templateText
+      };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) {
+          const msg = await res.text();
+          alert(`Submit failed: ${msg}`);
+          return;
+        }
+        
+        alert('Submitted to service.');
+      } catch (err) {
+        alert(`Submit error: ${err.message}`);
+      }
+    }
+
+    function copyToClipboard() {
+      const textarea = document.getElementById('template');
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        alert('Template copied to clipboard!');
+      } catch (err) {
+        // Fallback for modern browsers
+        navigator.clipboard.writeText(textarea.value)
+          .then(() => alert('Template copied to clipboard!'))
+          .catch(() => alert('Failed to copy'));
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      renderPHQ9Items();
+      renderGAD7Items();
+      renderK10Items();
+      updateScores();
+
+      document.getElementById('consumerRef').addEventListener('input', updateTemplate);
+      document.getElementById('appointmentRef').addEventListener('input', updateTemplate);
+      document.getElementById('includeK10').addEventListener('change', () => {
+        const k10Section = document.getElementById('k10-section');
+        k10Section.style.display = document.getElementById('includeK10').checked ? 'block' : 'none';
+        updateScores();
+      });
+    });
+  </script>
+</body>
+</html>
