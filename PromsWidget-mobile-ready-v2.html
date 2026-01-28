@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMHCI PROMs Capture</title>
+<style>
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#fafafa; margin:0; padding:20px; }
+.container { max-width:900px; margin:0 auto; background:#fff; padding:30px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+h2,h3 { color:#333; }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+@media(max-width:720px){ .grid-2{ grid-template-columns:1fr; } }
+.item-row { display:grid; grid-template-columns:1fr 220px; gap:12px; margin-bottom:10px; }
+@media(max-width:720px){ .item-row{ grid-template-columns:1fr; } }
+select,input,textarea{ width:100%; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:14px; }
+.score-box{ background:#f6f6f6; padding:12px; border-radius:8px; margin-top:10px; }
+.risk{ color:crimson; font-weight:bold; }
+textarea{ min-height:220px; font-family:monospace; }
+button{ padding:10px 16px; border-radius:8px; border:none; cursor:pointer; font-weight:600; }
+.btn-primary{ background:#0066cc; color:white; }
+.btn-secondary{ background:#28a745; color:white; }
+.btn-tertiary{ background:#eee; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>MMHCI PROMs Capture</h2>
+
+<div class="grid-2">
+<div><label>Consumer reference</label><input id="consumerRef"></div>
+<div><label>Appointment reference</label><input id="appointmentRef"></div>
+</div>
+
+<h3>PHQ-9</h3>
+<div id="phq9"></div>
+<div class="score-box">PHQ-9 total: <span id="phq9Total">0</span> <span id="riskFlag"></span></div>
+
+<h3>GAD-7</h3>
+<div id="gad7"></div>
+<div class="score-box">GAD-7 total: <span id="gad7Total">0</span></div>
+
+<h3>K10</h3>
+<div id="k10"></div>
+<div class="score-box">K10 total: <span id="k10Total">10</span></div>
+
+<h3>Generated summary</h3>
+<textarea id="summary" readonly></textarea>
+
+<div style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;">
+<button class="btn-primary" onclick="copyText()">Copy</button>
+<button class="btn-secondary" onclick="emailText()">Email</button>
+</div>
+
+</div>
+
+<script>
+const PHQ9 = [
+"Little interest or pleasure in doing things",
+"Feeling down, depressed, or hopeless",
+"Trouble sleeping",
+"Feeling tired",
+"Poor appetite or overeating",
+"Feeling bad about yourself",
+"Trouble concentrating",
+"Moving or speaking slowly / restlessness",
+"Thoughts of self-harm (risk)"
+];
+const GAD7 = [
+"Feeling nervous or anxious",
+"Not being able to stop worrying",
+"Worrying too much",
+"Trouble relaxing",
+"Restlessness",
+"Irritability",
+"Feeling afraid"
+];
+const K10 = [
+"Tired out for no reason","Nervous","So nervous nothing calms you","Hopeless",
+"Restless","So restless you can't sit still","Depressed",
+"Everything an effort","So sad nothing cheers you","Worthless"
+];
+
+const phq9Data = Array(9).fill(0);
+const gad7Data = Array(7).fill(0);
+const k10Data = Array(10).fill(1);
+
+function render(containerId, items, data, min, max){
+  const c=document.getElementById(containerId);
+  items.forEach((t,i)=>{
+    const r=document.createElement('div'); r.className='item-row';
+    const d=document.createElement('div'); d.textContent=(i+1)+'. '+t;
+    const s=document.createElement('select');
+    for(let v=min;v<=max;v++){ const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }
+    s.value=data[i];
+    s.onchange=e=>{ data[i]=+e.target.value; update(); };
+    r.appendChild(d); r.appendChild(s); c.appendChild(r);
+  });
+}
+
+function sum(a){return a.reduce((x,y)=>x+y,0);}
+
+function update(){
+  const p=sum(phq9Data), g=sum(gad7Data), k=sum(k10Data);
+  document.getElementById('phq9Total').textContent=p;
+  document.getElementById('gad7Total').textContent=g;
+  document.getElementById('k10Total').textContent=k;
+  document.getElementById('riskFlag').textContent=phq9Data[8]>0?'⚠️ RISK':'';
+  const lines=[
+    'MMHCI PROMs Summary',
+    '-------------------',
+    'PHQ-9: '+p,
+    'GAD-7: '+g,
+    'K10: '+k
+  ];
+  document.getElementById('summary').value=lines.join('\n');
+}
+
+function copyText(){
+  navigator.clipboard.writeText(document.getElementById('summary').value);
+}
+
+function emailText(){
+  const body=encodeURIComponent(document.getElementById('summary').value);
+  window.location='mailto:?subject=MMHCI PROMs&body='+body;
+}
+
+render('phq9',PHQ9,phq9Data,0,3);
+render('gad7',GAD7,gad7Data,0,3);
+render('k10',K10,k10Data,1,5);
+update();
+</script>
+</body>
+</html>
